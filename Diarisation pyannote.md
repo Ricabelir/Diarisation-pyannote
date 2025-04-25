@@ -1,3 +1,4 @@
+# Importation des pilotes nécessaire à l'opération
 import os
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 os.environ["HF_HUB_ENABLE_HARDLINKS"] = "0"
@@ -9,20 +10,20 @@ import plotly.graph_objects as go
 import torch
 import shutil
 import json
-
+# Clé d'authentification pyannote et assignation de l'audio à analyser
 HUGGINGFACE_TOKEN = "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"
 audio_file = "CNEWS.wav"
-
+# Chargement de l'outil d'analyse
 print("🔄 Chargement du pipeline customisé...")
 pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=HUGGINGFACE_TOKEN)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 pipeline.to(device)
 print("✅ Pipeline chargé.")
-
+# Analyse du fichier audio
 print("🎧 Début de l’analyse du fichier audio...")
 diarization = pipeline(audio_file, num_speakers=3)
 print("✅ Analyse terminée.")
-
+# Calcul des temps de paroles de chaque locuteur avec prise en compte des chevauchements de parole
 print("📊 Calcul des temps de parole et détection des overlaps précis...")
 segments_by_speaker = defaultdict(list)
 interventions_by_speaker = defaultdict(int)
@@ -72,13 +73,13 @@ speaker_colors_matplotlib = {
     speaker: cmap(i)[:3]
     for i, (speaker, _) in enumerate(sorted_speakers)
 }
-
+# Affichage des résultats
 print("\n📢 Temps de parole par locuteur :")
 for speaker, duration in speaking_times.items():
     minutes = int(duration // 60)
     seconds = int(duration % 60)
     print(f"{speaker}: {minutes} min {seconds} sec")
-
+# Création d'un graphe interactif en barre représentant l'activité des voix avec prise en compte des chevauchements
 print("📊 Création du graphe interactif (zoomable)...")
 plotly_fig = go.Figure()
 bar_height = 0.4
@@ -104,7 +105,7 @@ for speaker, segs in split_segments.items():
             showlegend=False
         ))
 
-# Légende Overlap
+# Ajout d'une légende "Overlap"
 plotly_fig.add_trace(go.Scatter(
     x=[0, 1, 1, 0, 0],
     y=[len(speaker_positions)+1]*5,
@@ -116,7 +117,7 @@ plotly_fig.add_trace(go.Scatter(
     showlegend=True
 ))
 
-# Format X en min:sec
+# Ajout d'une barre de recherche pour ajuster l'affichage de l'axe x (Format X en min:sec)
 max_time = max(end for start, end, _ in all_segments)
 x_tickvals = list(range(0, int(max_time) + 60, 60))
 x_ticktext = [f"{v//60}:{v%60:02}" for v in x_tickvals]
@@ -124,7 +125,7 @@ x_ticktext = [f"{v//60}:{v%60:02}" for v in x_tickvals]
 y_tickvals = list(speaker_positions.values()) + [len(speaker_positions)+1]
 y_ticktext = list(speaker_positions.keys()) + ["Overlap"]
 
-# Légende horizontale unique temps de parole
+# Ajout en légende horizontale du temps de parole total par locuteur
 legend_text = " | ".join(
     f"{speaker} : {int(speaking_times[speaker] // 60)} min {int(speaking_times[speaker] % 60)} sec"
     for speaker, _ in sorted_speakers
@@ -153,7 +154,7 @@ print("✅ Graphe interactif enregistré sous 'timeline_parole_interactif.html'"
 with open("timeline_parole_interactif.json", "w") as f:
     json.dump(plotly_fig.to_plotly_json(), f)
 print("✅ Fichier JSON généré sous 'timeline_parole_interactif.json'")
-
+# Création d'un histogramme des interventions
 print("📊 Création de l’histogramme des interventions...")
 plt.figure(figsize=(8, 4))
 speakers = list(interventions_by_speaker.keys())
@@ -170,7 +171,7 @@ plt.tight_layout()
 plt.savefig("interventions_par_locuteur.png")
 print("✅ Histogramme enregistré sous 'interventions_par_locuteur.png'")
 plt.show()
-
+# Création d'un fichier pour modélisation du graphe intéractif sur internet
 react_public_dir = os.path.join(os.path.expanduser("~"), "Documents", "timeline-diarisation", "public")
 shutil.copy("timeline_parole_interactif.html", os.path.join(react_public_dir, "timeline_parole_interactif.html"))
 shutil.copy("timeline_parole_interactif.json", os.path.join(react_public_dir, "timeline_parole_interactif.json"))
